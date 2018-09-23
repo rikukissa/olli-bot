@@ -53,7 +53,7 @@ def createTrainingMatrices(dictionary, corpus):
 def getTrainingBatch():
 	num = randint(0,numTrainingExamples - batchSize - 1)
 	arr = xTrain[num:num + batchSize]
-	labels = yTrain[num:num + batchSize]
+	labels = np.array(yTrain[num:num + batchSize])
 	return arr, labels[:,np.newaxis]
 
 continueWord2Vec = True

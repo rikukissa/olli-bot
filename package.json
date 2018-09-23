@@ -6,6 +6,7 @@
   },
   "scripts": {
     "prepare-data": "node make-conversation-obj.js && python convo-to-np.py && python Word2Vec.py",
-    "train": "python Seq2Seq.py"
+    "train": "python Seq2Seq.py",
+    "clean": "rm -r tensorboard *.npy *.txt"
   }
 }

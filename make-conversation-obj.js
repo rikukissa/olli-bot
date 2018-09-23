@@ -36,16 +36,16 @@ const conversation = data.reduce((convo, item) => {
   // Participant changed and Olli did not reply
   if (previous.reply === "") {
     return convo;
-    //   return convo.slice(-1).concat({ ...item, reply: "" });
   }
 
   return convo.concat({ ...item, reply: "" });
 }, []);
 
-const content = conversation.reduce(
-  (memo, item) => ({ ...memo, [item.message]: item.reply }),
-  {}
-);
+const content = conversation
+  .filter(item => {
+    return item.reply && item.reply.length < 36 && item.message.length < 36;
+  })
+  .reduce((memo, item) => ({ ...memo, [item.message]: item.reply }), {});
 
 require("fs").writeFileSync(
   "convo-object.json",
