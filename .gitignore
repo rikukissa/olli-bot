@@ -1,0 +1,7 @@
+node_modules
+*.npy
+*.txt
+models/
+tensorboard/
+convo-object.json
+all.json

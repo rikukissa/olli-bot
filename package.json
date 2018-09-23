@@ -1,0 +1,11 @@
+{
+  "name": "olli-bot",
+  "version": "1.0.0",
+  "license": "MIT",
+  "dependencies": {
+  },
+  "scripts": {
+    "prepare-data": "node make-conversation-obj.js && python convo-to-np.py && python Word2Vec.py",
+    "train": "python Seq2Seq.py"
+  }
+}
