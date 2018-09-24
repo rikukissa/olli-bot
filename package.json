@@ -1,12 +1,24 @@
 {
   "name": "olli-bot",
   "version": "1.0.0",
-  "license": "MIT",
+  "description": "",
+  "main": "index.js",
   "dependencies": {
+    "node-snowball": "^0.2.0",
+    "node-telegram-bot-api": "^0.30.0"
   },
+  "devDependencies": {},
   "scripts": {
-    "prepare-data": "node make-conversation-obj.js && python convo-to-np.py && python Word2Vec.py",
-    "train": "python Seq2Seq.py",
-    "clean": "rm -r tensorboard *.npy *.txt"
-  }
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rikukissa/olli-bot.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rikukissa/olli-bot/issues"
+  },
+  "homepage": "https://github.com/rikukissa/olli-bot#readme"
 }

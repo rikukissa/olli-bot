@@ -5,3 +5,5 @@ models/
 tensorboard/
 convo-object.json
 all.json
+model.json
+replies.json
