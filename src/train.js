@@ -96,8 +96,8 @@ function storeCandidate(tree, message, candidate) {
 
   if (existsAndNotMostPopular) {
     let betterOne = matches[indexInMatches - 1];
-    list[indexInMatches - 1] = candidate;
-    list[indexInMatches] = betterOne;
+    matches[indexInMatches - 1] = candidate;
+    matches[indexInMatches] = betterOne;
   }
 
   if (indexInMatches === -1) {
@@ -114,8 +114,11 @@ function getCandidates(tree, message) {
   let node = tree;
   let i = 0;
 
+  const previousBranches = [node];
+
   while (node[1][words[i]] !== undefined) {
     node = node[1][words[i]];
+    previousBranches.push(node);
     i++;
   }
 
@@ -125,10 +128,16 @@ function getCandidates(tree, message) {
     return getRandomReplies();
   }
 
+  const matchesFromBranchesHigherUp = previousBranches
+    .reverse()
+    .slice(1)
+    .reduce((memo, [matchesList]) => [...memo, ...matchesList], []);
+
   return [
-    ...matches.slice(0, 2),
-    ...unique(randomFromArray(matches.slice(2), 2)),
-    ...getRandomReplies()
+    ...matches, // all from found node
+    ...unique(randomFromArray(matches.slice(2), 2)), // 2 other ones from the found node
+    ...matchesFromBranchesHigherUp,
+    ...getRandomReplies() // random ones
   ].slice(0, 5);
 }
 

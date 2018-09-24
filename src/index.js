@@ -1,5 +1,5 @@
 const TelegramBot = require("node-telegram-bot-api");
-const fs = require("fs");
+
 const {
   loadFile,
   getRandomReplies,
@@ -15,48 +15,78 @@ const token = "";
 const bot = new TelegramBot(token, { polling: true });
 
 async function askForCandidate(fromId, candidates) {
-  const options = candidates.map((candidate, i) => [
-    {
-      text: candidate,
-      callback_data: i
-    }
-  ]);
+  function getReplyMarkup(options) {
+    return {
+      inline_keyboard: options.map(({ text, points }, i) => [
+        {
+          text: `${text} ${points > 0 ? `(${points})` : ""}`,
+          callback_data: i
+        }
+      ])
+    };
+  }
 
-  const opts = {
-    reply_markup: {
-      inline_keyboard: [
-        ...options,
-        [{ text: "Get a new random selection", callback_data: "r" }]
-      ]
-    }
-  };
+  let options = candidates.map(text => ({ text, points: 0 }));
+
+  const markup = getReplyMarkup(options);
 
   const sentMessage = await bot.sendMessage(
     fromId,
     "Mikä olis bestest vastaus?",
-    opts
+    {
+      reply_markup: {
+        ...markup,
+        inline_keyboard: [
+          ...markup.inline_keyboard,
+          [{ text: "➕ MORE", callback_data: "more" }]
+        ]
+      }
+    }
   );
 
   return new Promise(resolve => {
     const listener = async callbackQuery => {
-      await bot.deleteMessage(fromId, sentMessage.message_id);
       const input = callbackQuery.data.trim().toLowerCase();
 
-      if (input === "r") {
-        bot.removeListener("callback_query", listener);
-        const candi = await askForCandidate(fromId, getRandomReplies());
-        return resolve(candi);
+      if (input === "more") {
+        options = options.concat(
+          getRandomReplies().map(text => ({ text, points: 0 }))
+        );
+        bot.editMessageReplyMarkup(getReplyMarkup(options), {
+          chat_id: fromId,
+          message_id: sentMessage.message_id
+        });
+        return;
       }
 
       const number = parseInt(input, 10);
-      bot.sendMessage(
-        fromId,
-        "Gotcha 👍 " + "tästä eteenpäin tohon vastataan: " + candidates[number]
-      );
-      bot.removeListener("callback_query", listener);
-      resolve(candidates[number]);
+
+      options[number].points++;
+
+      bot.editMessageReplyMarkup(getReplyMarkup(options), {
+        chat_id: fromId,
+        message_id: sentMessage.message_id
+      });
     };
+
     bot.on("callback_query", listener);
+    setTimeout(async () => {
+      bot.removeListener("callback_query", listener);
+      await bot.deleteMessage(fromId, sentMessage.message_id);
+
+      const topOption = options.reduce(
+        (best, option) => (option.points > best.points ? option : best)
+      );
+      const topScore = topOption.points;
+
+      const allWithTopScore = options.filter(
+        ({ points }) => points === topScore
+      );
+      const result =
+        allWithTopScore[Math.floor(Math.random() * allWithTopScore.length)];
+
+      resolve(result.text);
+    }, 20000);
   });
 }
 
@@ -64,7 +94,7 @@ function getMessage() {
   return new Promise(resolve => {
     const listener = msg => {
       const hasPrefix = msg.text.indexOf("!olli ") === 0;
-      const privateChat = msg.chat.type === "private" && !hasPrefix;
+      const privateChat = !hasPrefix;
 
       if (privateChat || hasPrefix) {
         resolve({
@@ -83,6 +113,7 @@ async function loop(tree) {
   const { message, from, private } = await getMessage();
 
   if (private) {
+    await bot.sendChatAction(from, "typing");
     await bot.sendMessage(from, getReply(tree, message));
 
     loop(tree);
@@ -91,8 +122,15 @@ async function loop(tree) {
 
   const candidates = getCandidates(tree, message);
 
-  await bot.sendMessage(from, candidates[0]);
+  const sentMessage = await bot.sendMessage(from, candidates[0]);
   const candidate = await askForCandidate(from, candidates);
+
+  try {
+    await bot.editMessageText(candidate, {
+      chat_id: from,
+      message_id: sentMessage.message_id
+    });
+  } catch (err) {}
 
   const newTree = storeCandidate(tree, message, candidate);
 
