@@ -5,7 +5,8 @@ const {
   getRandomReplies,
   storeCandidate,
   persistTree,
-  getCandidates
+  getCandidates,
+  getReply
 } = require("./train");
 // replace the value below with the Telegram token you receive from @BotFather
 const token = "";
@@ -62,8 +63,15 @@ async function askForCandidate(fromId, candidates) {
 function getMessage() {
   return new Promise(resolve => {
     const listener = msg => {
-      if (msg.text.indexOf("!olli ") === 0) {
-        resolve({ message: msg.text.replace("!olli ", ""), from: msg.chat.id });
+      const hasPrefix = msg.text.indexOf("!olli ") === 0;
+      const privateChat = msg.chat.type === "private" && !hasPrefix;
+
+      if (privateChat || hasPrefix) {
+        resolve({
+          message: msg.text.replace("!olli ", ""),
+          from: msg.chat.id,
+          private: privateChat
+        });
         bot.removeListener(listener);
       }
     };
@@ -72,7 +80,14 @@ function getMessage() {
 }
 
 async function loop(tree) {
-  const { message, from } = await getMessage();
+  const { message, from, private } = await getMessage();
+
+  if (private) {
+    await bot.sendMessage(from, getReply(tree, message));
+
+    loop(tree);
+    return;
+  }
 
   const candidates = getCandidates(tree, message);
 
