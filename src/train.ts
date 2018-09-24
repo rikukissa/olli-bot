@@ -1,6 +1,17 @@
 const snowball = require("node-snowball");
 
-function randomFromArray(arr, amount) {
+export type Tree = [
+  string[],
+  {
+    [key: number]: Tree;
+  }
+];
+
+export type Candidate = string;
+export type Candidates = Candidate[];
+export type Replies = string[];
+
+function randomFromArray(arr: Array<any>, amount: number) {
   if (arr.length === 0) {
     return [];
   }
@@ -9,16 +20,11 @@ function randomFromArray(arr, amount) {
     .map(() => arr[Math.floor((arr.length - 1) * Math.random())]);
 }
 
-function getRandomReplies(replies) {
-  return randomFromArray(replies, 5);
-}
-module.exports.getRandomReplies = getRandomReplies;
-
-function unique(arr) {
+function unique(arr: Array<any>) {
   return arr.filter((item, i) => arr.slice(0, i).indexOf(item) === -1);
 }
 
-function getWords(message) {
+function getWords(message: string): string[] {
   return snowball.stemword(
     message
       .replace(/[\!\?\.]/g, "")
@@ -28,7 +34,7 @@ function getWords(message) {
   );
 }
 
-function getCandidateWithWeighting(candidates, value) {
+function getCandidateWithWeighting(candidates: Candidates, value: number) {
   const totalSlices = candidates.reduce((s, _, i) => s + i + 1, 0);
   const portions = candidates.map(
     (_, i) => (candidates.length - i) / totalSlices
@@ -47,7 +53,11 @@ function getCandidateWithWeighting(candidates, value) {
   return candidates[i];
 }
 
-function getReply(tree, message, replies) {
+export function getRandomReplies(replies: Replies) {
+  return randomFromArray(replies, 5);
+}
+
+export function getReply(tree: Tree, message: string, replies: Replies) {
   const candidates = getCandidates(tree, message, replies);
 
   const random = Math.random();
@@ -55,14 +65,16 @@ function getReply(tree, message, replies) {
   return getCandidateWithWeighting(candidates, random);
 }
 
-module.exports.getReply = getReply;
-
-function storeCandidate(tree, message, candidate) {
+export function storeCandidate(
+  tree: Tree,
+  message: string,
+  candidate: Candidate
+) {
   const words = getWords(message);
 
   let node = tree;
 
-  for (word of words) {
+  for (let word of words) {
     if (!node[1][word]) {
       node[1][word] = [[], {}];
     }
@@ -86,9 +98,11 @@ function storeCandidate(tree, message, candidate) {
   return tree;
 }
 
-module.exports.storeCandidate = storeCandidate;
-
-function getCandidates(tree, message, replies) {
+export function getCandidates(
+  tree: Tree,
+  message: string,
+  replies: Replies
+): string[] {
   const words = getWords(message);
 
   let node = tree;
@@ -120,5 +134,3 @@ function getCandidates(tree, message, replies) {
     ...getRandomReplies(replies) // random ones
   ].slice(0, 5);
 }
-
-module.exports.getCandidates = getCandidates;

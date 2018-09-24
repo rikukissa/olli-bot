@@ -1,31 +1,42 @@
 require("dotenv").config();
 
-const TelegramBot = require("node-telegram-bot-api");
-const octokit = require("@octokit/rest")();
+import * as TelegramBot from "node-telegram-bot-api";
+import * as Octo from "@octokit/rest";
 
-const {
+const octokit = new Octo();
+
+import {
   getRandomReplies,
   storeCandidate,
   getCandidates,
-  getReply
-} = require("./train");
+  getReply,
+  Replies,
+  Tree,
+  Candidates,
+  Candidate
+} from "./train";
 
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
-const GIST_ID = process.env.GIST_ID;
-const REPLIES_GIST_ID = process.env.REPLIES_GIST_ID;
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const POLL_TIME = process.env.POLL_TIME;
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN as string;
+const GIST_ID = process.env.GIST_ID as string;
+const REPLIES_GIST_ID = process.env.REPLIES_GIST_ID as string;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN as string;
+const POLL_TIME = parseInt(process.env.POLL_TIME as string, 10);
 
-// Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
-async function askForCandidate(fromId, candidates, replies) {
-  function getReplyMarkup(options) {
+type Options = Array<{ text: string; points: number }>;
+
+async function askForCandidate(
+  fromId: number,
+  candidates: Candidates,
+  replies: Replies
+): Promise<Candidate> {
+  function getReplyMarkup(options: Options) {
     return {
       inline_keyboard: options.map(({ text, points }, i) => [
         {
           text: `${text} ${points > 0 ? `(${points})` : ""}`,
-          callback_data: i
+          callback_data: i.toString()
         }
       ])
     };
@@ -45,13 +56,14 @@ async function askForCandidate(fromId, candidates, replies) {
           ...markup.inline_keyboard,
           [{ text: "➕ MORE", callback_data: "more" }]
         ]
-      }
+      } as TelegramBot.InlineKeyboardMarkup
     }
   );
 
-  return new Promise(resolve => {
-    const listener = async callbackQuery => {
-      const input = callbackQuery.data.trim().toLowerCase();
+  return new Promise<string>(resolve => {
+    const listener = async (callbackQuery: TelegramBot.CallbackQuery) => {
+      const selectedOptionData = callbackQuery.data as string;
+      const input = selectedOptionData.trim().toLowerCase();
 
       if (input === "more") {
         options = options.concat(
@@ -77,7 +89,7 @@ async function askForCandidate(fromId, candidates, replies) {
     bot.on("callback_query", listener);
     setTimeout(async () => {
       bot.removeListener("callback_query", listener);
-      await bot.deleteMessage(fromId, sentMessage.message_id);
+      await bot.deleteMessage(fromId, sentMessage.message_id.toString());
 
       const topOption = options.reduce(
         (best, option) => (option.points > best.points ? option : best)
@@ -95,29 +107,38 @@ async function askForCandidate(fromId, candidates, replies) {
   });
 }
 
-function getMessage() {
+function getMessage(): Promise<{
+  message: string;
+  from: number;
+  isPrivate: boolean;
+}> {
   return new Promise(resolve => {
-    const listener = msg => {
-      const hasPrefix = msg.text.indexOf("!olli ") === 0;
-      const privateChat = !hasPrefix;
+    const listener = (msg: TelegramBot.Message) => {
+      if (!msg.text) {
+        return;
+      }
 
-      if (privateChat || hasPrefix) {
+      const hasPrefix = msg.text.indexOf("!olli ") === 0;
+      const isPrivate = !hasPrefix;
+
+      if (isPrivate || hasPrefix) {
         resolve({
           message: msg.text.replace("!olli ", ""),
           from: msg.chat.id,
-          private: privateChat
+          isPrivate
         });
-        bot.removeListener(listener);
+
+        bot.removeListener("message", listener);
       }
     };
     bot.on("message", listener);
   });
 }
 
-async function loop(tree, replies) {
-  const { message, from, private } = await getMessage();
+async function loop(tree: Tree, replies: Replies) {
+  const { message, from, isPrivate } = await getMessage();
 
-  if (private) {
+  if (isPrivate) {
     await bot.sendChatAction(from, "typing");
     await bot.sendMessage(from, getReply(tree, message, replies));
 
@@ -146,7 +167,7 @@ async function loop(tree, replies) {
         filename: "model.json",
         content: JSON.stringify(newTree, null, 2)
       }
-    }
+    } as any // TODO
   });
 
   loop(newTree, replies);

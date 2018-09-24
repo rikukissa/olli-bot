@@ -8,3 +8,4 @@ all.json
 model.json
 replies.json
 .env
+yarn-error.log
