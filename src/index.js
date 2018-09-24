@@ -1,20 +1,25 @@
+require("dotenv").config();
+
 const TelegramBot = require("node-telegram-bot-api");
+const octokit = require("@octokit/rest")();
 
 const {
-  loadFile,
   getRandomReplies,
   storeCandidate,
-  persistTree,
   getCandidates,
   getReply
 } = require("./train");
-// replace the value below with the Telegram token you receive from @BotFather
-const token = "";
+
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const GIST_ID = process.env.GIST_ID;
+const REPLIES_GIST_ID = process.env.REPLIES_GIST_ID;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const POLL_TIME = process.env.POLL_TIME;
 
 // Create a bot that uses 'polling' to fetch new updates
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
-async function askForCandidate(fromId, candidates) {
+async function askForCandidate(fromId, candidates, replies) {
   function getReplyMarkup(options) {
     return {
       inline_keyboard: options.map(({ text, points }, i) => [
@@ -50,7 +55,7 @@ async function askForCandidate(fromId, candidates) {
 
       if (input === "more") {
         options = options.concat(
-          getRandomReplies().map(text => ({ text, points: 0 }))
+          getRandomReplies(replies).map(text => ({ text, points: 0 }))
         );
         bot.editMessageReplyMarkup(getReplyMarkup(options), {
           chat_id: fromId,
@@ -86,7 +91,7 @@ async function askForCandidate(fromId, candidates) {
         allWithTopScore[Math.floor(Math.random() * allWithTopScore.length)];
 
       resolve(result.text);
-    }, 20000);
+    }, POLL_TIME);
   });
 }
 
@@ -109,21 +114,21 @@ function getMessage() {
   });
 }
 
-async function loop(tree) {
+async function loop(tree, replies) {
   const { message, from, private } = await getMessage();
 
   if (private) {
     await bot.sendChatAction(from, "typing");
-    await bot.sendMessage(from, getReply(tree, message));
+    await bot.sendMessage(from, getReply(tree, message, replies));
 
-    loop(tree);
+    loop(tree, replies);
     return;
   }
 
-  const candidates = getCandidates(tree, message);
+  const candidates = getCandidates(tree, message, replies);
 
   const sentMessage = await bot.sendMessage(from, candidates[0]);
-  const candidate = await askForCandidate(from, candidates);
+  const candidate = await askForCandidate(from, candidates, replies);
 
   try {
     await bot.editMessageText(candidate, {
@@ -134,8 +139,36 @@ async function loop(tree) {
 
   const newTree = storeCandidate(tree, message, candidate);
 
-  persistTree(newTree);
-  loop(newTree);
+  await octokit.gists.edit({
+    gist_id: GIST_ID,
+    files: {
+      "model.json": {
+        filename: "model.json",
+        content: JSON.stringify(newTree, null, 2)
+      }
+    }
+  });
+
+  loop(newTree, replies);
 }
 
-loop(loadFile());
+async function run() {
+  await octokit.authenticate({
+    type: "token",
+    token: GITHUB_TOKEN
+  });
+
+  const modelGist = await octokit.gists.get({
+    gist_id: GIST_ID
+  });
+  const repliesGist = await octokit.gists.get({
+    gist_id: REPLIES_GIST_ID
+  });
+
+  const model = JSON.parse(modelGist.data.files["model.json"].content);
+  const replies = JSON.parse(repliesGist.data.files["replies.json"].content);
+
+  loop(model, replies);
+}
+
+run();
