@@ -1,9 +1,9 @@
 const snowball = require("node-snowball");
 
-export type Tree = [
+export type Model = [
   string[],
   {
-    [key: number]: Tree;
+    [key: number]: Model;
   }
 ];
 
@@ -57,8 +57,12 @@ export function getRandomReplies(replies: Replies) {
   return randomFromArray(replies, 5);
 }
 
-export function getReply(tree: Tree, message: string, replies: Replies) {
-  const candidates = getCandidates(tree, message, replies);
+export function getBestMatchingCandidate(
+  model: Model,
+  replies: Replies,
+  message: string
+) {
+  const candidates = getCandidates(model, message, replies);
 
   const random = Math.random();
 
@@ -66,13 +70,13 @@ export function getReply(tree: Tree, message: string, replies: Replies) {
 }
 
 export function storeCandidate(
-  tree: Tree,
+  model: Model,
   message: string,
   candidate: Candidate
 ) {
   const words = getWords(message);
 
-  let node = tree;
+  let node = model;
 
   for (let word of words) {
     if (!node[1][word]) {
@@ -95,17 +99,17 @@ export function storeCandidate(
   if (indexInMatches === -1) {
     matches.push(candidate);
   }
-  return tree;
+  return model;
 }
 
 export function getCandidates(
-  tree: Tree,
+  model: Model,
   message: string,
   replies: Replies
 ): string[] {
   const words = getWords(message);
 
-  let node = tree;
+  let node = model;
   let i = 0;
 
   const previousBranches = [node];
