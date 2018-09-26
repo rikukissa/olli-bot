@@ -108,14 +108,14 @@ export async function pollForBestCandidate(
       } else {
         const number = parseInt(selectedOptionData, 10);
         pollOptions[number].points++;
+
+        if (!firstAnswerReceived) {
+          firstAnswerReceived = true;
+          onceASecond(POLL_TIME);
+        }
       }
 
       await rerenderButtons();
-
-      if (!firstAnswerReceived) {
-        firstAnswerReceived = true;
-        onceASecond(POLL_TIME);
-      }
     };
 
     bot.on("callback_query", listener);
