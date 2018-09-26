@@ -17,15 +17,19 @@ export function removeTrainingCommandPrefix(text: string) {
 
 function createPollButtons(options: Options) {
   return {
-    inline_keyboard: options.map(({ text, points }, i) => [
-      {
-        text: `${text} ${points > 0 ? `(${points})` : ""}`,
-        callback_data: i.toString()
-      }
-    ])
+    inline_keyboard: [
+      ...options.map(({ text, points }, i) => [
+        {
+          text: `${text} ${points > 0 ? `(${points})` : ""}`,
+          callback_data: i.toString()
+        }
+      ]),
+      MORE_BUTTON
+    ]
   };
 }
 
+const MORE_BUTTON = [{ text: "➕ Lisää", callback_data: "more" }];
 export async function pollForBestCandidate(
   bot: TelegramBot,
   chatId: number,
@@ -42,13 +46,7 @@ export async function pollForBestCandidate(
 
   const titleMessage = await bot.sendMessage(chatId, getPollTitle(POLL_TIME));
   const buttonMessage = await bot.sendMessage(chatId, "Vaihtoehdot:", {
-    reply_markup: {
-      ...pollButtons,
-      inline_keyboard: [
-        ...pollButtons.inline_keyboard,
-        [{ text: "➕ MORE", callback_data: "more" }]
-      ]
-    }
+    reply_markup: pollButtons
   });
 
   const rerenderText = (timeLeft: number) =>
