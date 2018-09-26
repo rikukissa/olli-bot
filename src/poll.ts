@@ -28,7 +28,7 @@ function createPollButtons(options: Options) {
 
 export async function pollForBestCandidate(
   bot: TelegramBot,
-  channelId: number,
+  chatId: number,
   candidates: Candidates,
   replies: Replies
 ): Promise<Candidate> {
@@ -37,62 +37,87 @@ export async function pollForBestCandidate(
 
   const pollButtons = createPollButtons(pollOptions);
 
-  const sentMessage = await bot.sendMessage(
-    channelId,
-    "Mikä olis bestest vastaus?",
-    {
-      reply_markup: {
-        ...pollButtons,
-        inline_keyboard: [
-          ...pollButtons.inline_keyboard,
-          [{ text: "➕ MORE", callback_data: "more" }]
-        ]
-      }
+  const getPollTitle = (timeLeft: number) =>
+    `Mikä olis bestest vastaus? (${Math.floor(timeLeft / 1000)}s vastausaikaa)`;
+
+  const titleMessage = await bot.sendMessage(chatId, getPollTitle(POLL_TIME));
+  const buttonMessage = await bot.sendMessage(chatId, "Vaihtoehdot:", {
+    reply_markup: {
+      ...pollButtons,
+      inline_keyboard: [
+        ...pollButtons.inline_keyboard,
+        [{ text: "➕ MORE", callback_data: "more" }]
+      ]
     }
-  );
+  });
+
+  const rerenderText = (timeLeft: number) =>
+    bot.editMessageText(getPollTitle(timeLeft), {
+      chat_id: chatId,
+      message_id: titleMessage.message_id
+    });
 
   const rerenderButtons = () =>
     bot.editMessageReplyMarkup(createPollButtons(pollOptions), {
-      chat_id: channelId,
-      message_id: sentMessage.message_id
+      chat_id: chatId,
+      message_id: buttonMessage.message_id
     });
 
-  const listener = async (callbackQuery: TelegramBot.CallbackQuery) => {
-    const selectedOptionData = callbackQuery.data as string;
-
-    if (selectedOptionData === "more") {
-      pollOptions = pollOptions.concat(
-        getRandomReplies(replies).map(text => ({ text, points: 0 }))
-      );
-      rerenderButtons();
-      return;
+  return new Promise<string>(resolve => {
+    async function clear() {
+      bot.removeListener("callback_query", listener);
+      await bot.deleteMessage(chatId, titleMessage.message_id.toString());
+      await bot.deleteMessage(chatId, buttonMessage.message_id.toString());
     }
 
-    const number = parseInt(selectedOptionData, 10);
-    pollOptions[number].points++;
+    async function onceASecond(timeLeft: number) {
+      if (timeLeft <= 0) {
+        await clear();
 
-    rerenderButtons();
-  };
+        const topOption = pollOptions.reduce(
+          (best, option) => (option.points > best.points ? option : best)
+        );
+        const topScore = topOption.points;
 
-  bot.on("callback_query", listener);
+        const allWithTopScore = pollOptions.filter(
+          ({ points }) => points === topScore
+        );
+        const result =
+          allWithTopScore[Math.floor(Math.random() * allWithTopScore.length)];
 
-  return new Promise<string>(resolve => {
-    setTimeout(async () => {
-      bot.removeListener("callback_query", listener);
-      await bot.deleteMessage(channelId, sentMessage.message_id.toString());
+        return resolve(result.text);
+      }
 
-      const topOption = pollOptions.reduce(
-        (best, option) => (option.points > best.points ? option : best)
-      );
-      const topScore = topOption.points;
+      await rerenderText(timeLeft - 1000);
+      setTimeout(() => onceASecond(timeLeft - 1000), 1000);
+    }
 
-      const allWithTopScore = pollOptions.filter(
-        ({ points }) => points === topScore
-      );
-      const result =
-        allWithTopScore[Math.floor(Math.random() * allWithTopScore.length)];
+    let firstAnswerReceived = false;
 
-      resolve(result.text);
-    }, POLL_TIME);
+    const listener = async (callbackQuery: TelegramBot.CallbackQuery) => {
+      if (chatId !== (callbackQuery.message && callbackQuery.message.chat.id)) {
+        return;
+      }
+
+      const selectedOptionData = callbackQuery.data as string;
+
+      if (selectedOptionData === "more") {
+        pollOptions = pollOptions.concat(
+          getRandomReplies(replies).map(text => ({ text, points: 0 }))
+        );
+      } else {
+        const number = parseInt(selectedOptionData, 10);
+        pollOptions[number].points++;
+      }
+
+      await rerenderButtons();
+
+      if (!firstAnswerReceived) {
+        firstAnswerReceived = true;
+        onceASecond(POLL_TIME);
+      }
+    };
+
+    bot.on("callback_query", listener);
   });
 }

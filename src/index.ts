@@ -17,25 +17,32 @@ import {
   isTrainingMessage,
   removeTrainingCommandPrefix
 } from "./poll";
-import { promisifyCallback } from "./promisifyCallback";
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN as string;
 
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
-function once<T>(event: string) {
-  return promisifyCallback<T>(bot.once.bind(bot))(event);
+function waitForChannelMessage(chatId: number) {
+  return new Promise<TelegramBot.Message>(resolve => {
+    const handler = (message: TelegramBot.Message) => {
+      if (message.chat.id === chatId) {
+        bot.removeListener("message", handler);
+        resolve(message);
+      }
+    };
+    bot.on("message", handler);
+  });
 }
 
 async function sendBestMatchingCandidate(
   model: Model,
   replies: Replies,
   message: MessageWithText,
-  channelId: number
+  chatId: number
 ): Promise<Model> {
-  await bot.sendChatAction(channelId, "typing");
+  await bot.sendChatAction(chatId, "typing");
   await bot.sendMessage(
-    channelId,
+    chatId,
     getBestMatchingCandidate(model, replies, message.text)
   );
   return model;
@@ -45,14 +52,14 @@ async function handleMessage(
   model: Model,
   replies: Replies,
   message: MessageWithText,
-  channelId: number
+  chatId: number
 ): Promise<Model> {
   if (!message.text) {
     return model;
   }
 
   if (!isTrainingMessage(message)) {
-    await sendBestMatchingCandidate(model, replies, message, channelId);
+    await sendBestMatchingCandidate(model, replies, message, chatId);
     return model;
   }
 
@@ -61,22 +68,15 @@ async function handleMessage(
   const candidates = getCandidates(model, text, replies);
   const candidateWithHighestScore = candidates[0];
 
-  const sentMessage = await bot.sendMessage(
-    channelId,
-    candidateWithHighestScore
-  );
   const candidate = await pollForBestCandidate(
     bot,
-    channelId,
+    chatId,
     candidates,
     replies
   );
 
   if (candidateWithHighestScore !== candidate) {
-    await bot.editMessageText(candidate, {
-      chat_id: channelId,
-      message_id: sentMessage.message_id
-    });
+    await bot.sendMessage(chatId, candidate);
   }
 
   return storeCandidate(model, text, candidate);
@@ -88,26 +88,25 @@ async function runBot() {
   const knownChannels: number[] = [];
 
   // Channel specific "process"
-  async function messageLoop(channelId: number, message?: TelegramBot.Message) {
-    const receivedMessage =
-      message || (await once<TelegramBot.Message>("message"));
+  async function messageLoop(chatId: number, message?: TelegramBot.Message) {
+    const receivedMessage = message || (await waitForChannelMessage(chatId));
 
     if (!receivedMessage.text) {
-      messageLoop(channelId);
+      messageLoop(chatId);
       return;
     }
     const newModel = await handleMessage(
       model,
       replies,
       receivedMessage as MessageWithText,
-      channelId
+      chatId
     );
 
     // Many running chats can modify the "global" messages model
     model = merge(model, newModel);
 
     storeModel(model);
-    messageLoop(channelId);
+    messageLoop(chatId);
   }
 
   bot.on("message", (message: TelegramBot.Message) => {
