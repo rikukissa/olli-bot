@@ -103,6 +103,9 @@ function getNodeWithPath(model: Model, words: string[]): Model | undefined {
 
   for (let word of words) {
     node = node[1][word];
+    if (!node) {
+      break;
+    }
   }
 
   return node;

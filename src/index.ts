@@ -34,13 +34,19 @@ function waitForChannelMessage(chatId: number) {
   });
 }
 
+function wait(time: number) {
+  return new Promise(resolve => setTimeout(resolve, time));
+}
+
 async function sendBestMatchingCandidate(
   model: Model,
   replies: Replies,
   message: MessageWithText,
   chatId: number
 ): Promise<Model> {
+  await wait(Math.random() * 2000);
   await bot.sendChatAction(chatId, "typing");
+  await wait(Math.random() * 4000);
   await bot.sendMessage(
     chatId,
     getBestMatchingCandidate(model, replies, message.text)
