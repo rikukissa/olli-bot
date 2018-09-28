@@ -1,0 +1,5 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`replies foobar 1`] = `"moro boijaat"`;
+
+exports[`replies foobar 2`] = `"laitoin pari biisiä poimintoihin"`;

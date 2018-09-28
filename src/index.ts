@@ -65,7 +65,7 @@ async function handleMessage(
 
   const text = removeTrainingCommandPrefix(message.text);
 
-  const candidates = getCandidates(model, text, replies);
+  const candidates = getCandidates(model, text, replies).slice(0, 5);
   const candidateWithHighestScore = candidates[0];
 
   const candidate = await pollForBestCandidate(

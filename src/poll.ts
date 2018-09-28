@@ -62,10 +62,12 @@ export async function pollForBestCandidate(
     });
 
   return new Promise<string>(resolve => {
-    async function clear() {
+    function clear() {
       bot.removeListener("callback_query", listener);
-      await bot.deleteMessage(chatId, titleMessage.message_id.toString());
-      await bot.deleteMessage(chatId, buttonMessage.message_id.toString());
+      return Promise.all([
+        bot.deleteMessage(chatId, titleMessage.message_id.toString()),
+        bot.deleteMessage(chatId, buttonMessage.message_id.toString())
+      ]);
     }
 
     async function onceASecond(timeLeft: number) {

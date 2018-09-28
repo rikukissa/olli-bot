@@ -20,10 +20,6 @@ function randomFromArray(arr: Array<any>, amount: number) {
     .map(() => arr[Math.floor((arr.length - 1) * Math.random())]);
 }
 
-function unique(arr: Array<any>) {
-  return arr.filter((item, i) => arr.slice(0, i).indexOf(item) === -1);
-}
-
 function getWords(message: string): string[] {
   return snowball.stemword(
     message
@@ -102,6 +98,42 @@ export function storeCandidate(
   return model;
 }
 
+function getNodeWithPath(model: Model, words: string[]): Model | undefined {
+  let node = model;
+
+  for (let word of words) {
+    node = node[1][word];
+  }
+
+  return node;
+}
+
+function getRepliesFromPath(model: Model, words: string[]) {
+  let node = model;
+  let i = 0;
+  let results: string[] = [];
+
+  while (node[1][words[i]] !== undefined) {
+    node = node[1][words[i]];
+    results = results.concat(node[0]);
+    i++;
+  }
+  return results;
+}
+
+function getMatchesFromSiblings(tree: Model, parentNode: Model) {
+  return Object.keys(parentNode[1])
+    .filter(key => parentNode[1][key] !== tree)
+    .reduce((memo, key) => memo.concat(parentNode[1][key][0]), []);
+}
+
+function getAllReplies(tree: Model): string[] {
+  return Object.keys(tree[1]).reduce(
+    (memo, key) => memo.concat(getAllReplies(tree[1][key])),
+    tree[0]
+  );
+}
+
 export function getCandidates(
   model: Model,
   message: string,
@@ -109,32 +141,41 @@ export function getCandidates(
 ): string[] {
   const words = getWords(message);
 
-  let node = model;
+  const matchingNode = getNodeWithPath(model, words);
+  const parentNode = getNodeWithPath(model, words.slice(0, -1));
+
+  const perfectMatches = matchingNode ? matchingNode[0] : [];
+
+  const matchesFromFurtherInTree = matchingNode
+    ? getAllReplies(matchingNode)
+    : [];
+
+  const matchesFromSiblings =
+    matchingNode && parentNode
+      ? getMatchesFromSiblings(matchingNode, parentNode)
+      : [];
+
+  const matchesFromBranchesBelow =
+    words.length > 1
+      ? getRepliesFromPath(model, words.slice(0, -1)).reverse()
+      : [];
+
   let i = 0;
-
-  const previousBranches = [node];
-
-  while (node[1][words[i]] !== undefined) {
-    node = node[1][words[i]];
-    previousBranches.push(node);
+  let matchesFromSiblingsBelow: string[] = [];
+  while (i < words.length) {
+    const parent = getNodeWithPath(model, words.slice(0, words.length - i));
+    if (parent) {
+      matchesFromSiblingsBelow = getAllReplies(parent);
+    }
     i++;
   }
 
-  const matches = node[0];
-
-  if (matches.length === 0) {
-    return getRandomReplies(replies);
-  }
-
-  const matchesFromBranchesHigherUp = previousBranches
-    .reverse()
-    .slice(1)
-    .reduce((memo, [matchesList]) => [...memo, ...matchesList], []);
-
   return [
-    ...matches, // all from found node
-    ...unique(randomFromArray(matches.slice(2), 2)), // 2 other ones from the found node
-    ...matchesFromBranchesHigherUp,
-    ...getRandomReplies(replies) // random ones
-  ].slice(0, 5);
+    ...perfectMatches,
+    ...matchesFromFurtherInTree,
+    ...matchesFromSiblings,
+    ...matchesFromBranchesBelow,
+    ...matchesFromSiblingsBelow,
+    ...getRandomReplies(replies)
+  ];
 }
