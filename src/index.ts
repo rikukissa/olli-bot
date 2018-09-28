@@ -46,11 +46,11 @@ async function sendBestMatchingCandidate(
 ): Promise<Model> {
   await wait(Math.random() * 2000);
   await bot.sendChatAction(chatId, "typing");
-  await wait(Math.random() * 4000);
-  await bot.sendMessage(
-    chatId,
-    getBestMatchingCandidate(model, replies, message.text)
-  );
+
+  const candidate = getBestMatchingCandidate(model, replies, message.text);
+  await wait(Math.random() * 4000 + candidate.length * 300);
+
+  await bot.sendMessage(chatId, candidate);
   return model;
 }
 
