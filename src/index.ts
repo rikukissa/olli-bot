@@ -55,7 +55,7 @@ function resemblesGreetings(message: string): string[] {
 
 function constructGreeting() {
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
-  const to = greetingTo[Math.floor(Math.random() * emojis.length)];
+  const to = greetingTo[Math.floor(Math.random() * greetingTo.length)];
   const emoji = emojis[Math.floor(Math.random() * emojis.length)];
 
   if (to === '' && emoji === '') {
