@@ -49,7 +49,7 @@ function resemblesMeaningOfLife(message: string): boolean {
 function resemblesGreetings(message: string): string[] {
   return greetings.filter(greeting => {
     const { distance } = new Levenshtein(message, greeting);
-    return distance < 4;
+    return distance < 3;
   });
 }
 
