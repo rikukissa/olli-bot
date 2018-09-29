@@ -1,24 +1,27 @@
-require("dotenv").config();
+import * as dotenv from 'dotenv';
+dotenv.config();
 
-import * as TelegramBot from "node-telegram-bot-api";
-import { merge } from "lodash";
+import * as TelegramBot from 'node-telegram-bot-api';
+import * as Levenshtein from 'levenshtein';
+import { merge } from 'lodash';
+import { greetings, emojis, greetingTo } from './greetings';
 
 import {
   storeCandidate,
   getCandidates,
   getBestMatchingCandidate,
   Replies,
-  Model
-} from "./candidate";
-import { storeModel, getReplies, getModel } from "./storage";
+  Model,
+} from './candidate';
+import { storeModel, getReplies, getModel } from './storage';
 import {
   pollForBestCandidate,
   MessageWithText,
   isTrainingMessage,
-  removeTrainingCommandPrefix
-} from "./poll";
+  removeTrainingCommandPrefix,
+} from './poll';
 
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN as string;
+const TELEGRAM_TOKEN = process.env.ASKER_TELEGRAM_TOKEN as string;
 
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
@@ -26,11 +29,11 @@ function waitForChannelMessage(chatId: number) {
   return new Promise<TelegramBot.Message>(resolve => {
     const handler = (message: TelegramBot.Message) => {
       if (message.chat.id === chatId) {
-        bot.removeListener("message", handler);
+        bot.removeListener('message', handler);
         resolve(message);
       }
     };
-    bot.on("message", handler);
+    bot.on('message', handler);
   });
 }
 
@@ -38,14 +41,48 @@ function wait(time: number) {
   return new Promise(resolve => setTimeout(resolve, time));
 }
 
+function resemblesGreetings(message: string): string[] {
+  return greetings.filter(greeting => {
+    const { distance } = new Levenshtein(message, greeting);
+    return distance < 4;
+  });
+}
+
+function constructGreeting() {
+  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+  const to = greetingTo[Math.floor(Math.random() * emojis.length)];
+  const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+  if (to === '' && emoji === '') {
+    return `${greeting}!!`;
+  }
+
+  if (to === '') {
+    return `${greeting} ${emoji}${emoji}`;
+  }
+
+  return `${greeting} ${to} ${emoji}`;
+}
+
 async function sendBestMatchingCandidate(
   model: Model,
   replies: Replies,
   message: MessageWithText,
-  chatId: number
+  chatId: number,
 ): Promise<Model> {
   await wait(Math.random() * 2000);
-  await bot.sendChatAction(chatId, "typing");
+  await bot.sendChatAction(chatId, 'typing');
+
+  const matchingGreetings = resemblesGreetings(message.text);
+
+  if (matchingGreetings.length > 0) {
+    const randomizedGreeting = constructGreeting();
+
+    await wait(Math.random() * 4000 + randomizedGreeting.length * 300);
+    await bot.sendMessage(chatId, randomizedGreeting);
+
+    return model;
+  }
 
   const candidate = getBestMatchingCandidate(model, replies, message.text);
   await wait(Math.random() * 4000 + candidate.length * 300);
@@ -58,7 +95,7 @@ async function handleMessage(
   model: Model,
   replies: Replies,
   message: MessageWithText,
-  chatId: number
+  chatId: number,
 ): Promise<Model> {
   if (!message.text) {
     return model;
@@ -78,7 +115,7 @@ async function handleMessage(
     bot,
     chatId,
     candidates,
-    replies
+    replies,
   );
 
   if (candidateWithHighestScore !== candidate) {
@@ -105,7 +142,7 @@ async function runBot() {
       model,
       replies,
       receivedMessage as MessageWithText,
-      chatId
+      chatId,
     );
 
     // Many running chats can modify the "global" messages model
@@ -115,7 +152,7 @@ async function runBot() {
     messageLoop(chatId);
   }
 
-  bot.on("message", (message: TelegramBot.Message) => {
+  bot.on('message', (message: TelegramBot.Message) => {
     const channelLoopAlreadyRunning =
       knownChannels.indexOf(message.chat.id) > -1;
 
@@ -125,7 +162,7 @@ async function runBot() {
 
     knownChannels.push(message.chat.id);
 
-    if (message.text === "/start") {
+    if (message.text === '/start') {
       messageLoop(message.chat.id);
       return;
     }

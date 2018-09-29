@@ -5,10 +5,13 @@
   "main": "index.js",
   "dependencies": {
     "@octokit/rest": "^15.12.0",
+    "@types/dotenv": "^4.0.3",
     "@types/jest": "^23.3.2",
+    "@types/levenshtein": "^1.0.1",
     "@types/lodash": "^4.14.116",
     "@types/node-telegram-bot-api": "^0.30.3",
     "dotenv": "^6.0.0",
+    "levenshtein": "^1.0.5",
     "lodash": "^4.17.11",
     "node-snowball": "^0.2.0",
     "node-telegram-bot-api": "^0.30.0",

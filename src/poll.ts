@@ -1,5 +1,5 @@
-import * as TelegramBot from "node-telegram-bot-api";
-import { Candidates, Replies, Candidate, getRandomReplies } from "./candidate";
+import * as TelegramBot from 'node-telegram-bot-api';
+import { Candidates, Replies, Candidate, getRandomReplies } from './candidate';
 
 type Options = Array<{ text: string; points: number }>;
 
@@ -8,11 +8,11 @@ const POLL_TIME = parseInt(process.env.POLL_TIME as string, 10);
 export type MessageWithText = TelegramBot.Message & { text: string };
 
 export function isTrainingMessage(message: MessageWithText) {
-  return message.text.indexOf("!olli ") === 0;
+  return message.text.indexOf('!olli ') === 0;
 }
 
 export function removeTrainingCommandPrefix(text: string) {
-  return text.replace("!olli ", "");
+  return text.replace('!olli ', '');
 }
 
 function createPollButtons(options: Options) {
@@ -20,21 +20,21 @@ function createPollButtons(options: Options) {
     inline_keyboard: [
       ...options.map(({ text, points }, i) => [
         {
-          text: `${text} ${points > 0 ? `(${points})` : ""}`,
-          callback_data: i.toString()
-        }
+          text: `${text} ${points > 0 ? `(${points})` : ''}`,
+          callback_data: i.toString(),
+        },
       ]),
-      MORE_BUTTON
-    ]
+      MORE_BUTTON,
+    ],
   };
 }
 
-const MORE_BUTTON = [{ text: "➕ Lisää", callback_data: "more" }];
+const MORE_BUTTON = [{ text: '➕ Lisää', callback_data: 'more' }];
 export async function pollForBestCandidate(
   bot: TelegramBot,
   chatId: number,
   candidates: Candidates,
-  replies: Replies
+  replies: Replies,
 ): Promise<Candidate> {
   // Value changes every time a candidate is selected by someone
   let pollOptions = candidates.map(text => ({ text, points: 0 }));
@@ -45,28 +45,28 @@ export async function pollForBestCandidate(
     `Mikä olis bestest vastaus? (${Math.floor(timeLeft / 1000)}s vastausaikaa)`;
 
   const titleMessage = await bot.sendMessage(chatId, getPollTitle(POLL_TIME));
-  const buttonMessage = await bot.sendMessage(chatId, "Vaihtoehdot:", {
-    reply_markup: pollButtons
+  const buttonMessage = await bot.sendMessage(chatId, 'Vaihtoehdot:', {
+    reply_markup: pollButtons,
   });
 
   const rerenderText = (timeLeft: number) =>
     bot.editMessageText(getPollTitle(timeLeft), {
       chat_id: chatId,
-      message_id: titleMessage.message_id
+      message_id: titleMessage.message_id,
     });
 
   const rerenderButtons = () =>
     bot.editMessageReplyMarkup(createPollButtons(pollOptions), {
       chat_id: chatId,
-      message_id: buttonMessage.message_id
+      message_id: buttonMessage.message_id,
     });
 
   return new Promise<string>(resolve => {
     function clear() {
-      bot.removeListener("callback_query", listener);
+      bot.removeListener('callback_query', listener);
       return Promise.all([
         bot.deleteMessage(chatId, titleMessage.message_id.toString()),
-        bot.deleteMessage(chatId, buttonMessage.message_id.toString())
+        bot.deleteMessage(chatId, buttonMessage.message_id.toString()),
       ]);
     }
 
@@ -75,12 +75,12 @@ export async function pollForBestCandidate(
         await clear();
 
         const topOption = pollOptions.reduce(
-          (best, option) => (option.points > best.points ? option : best)
+          (best, option) => (option.points > best.points ? option : best),
         );
         const topScore = topOption.points;
 
         const allWithTopScore = pollOptions.filter(
-          ({ points }) => points === topScore
+          ({ points }) => points === topScore,
         );
         const result =
           allWithTopScore[Math.floor(Math.random() * allWithTopScore.length)];
@@ -101,13 +101,13 @@ export async function pollForBestCandidate(
 
       const selectedOptionData = callbackQuery.data as string;
 
-      if (selectedOptionData === "more") {
+      if (selectedOptionData === 'more') {
         pollOptions = pollOptions.concat(
-          getRandomReplies(replies).map(text => ({ text, points: 0 }))
+          getRandomReplies(replies).map(text => ({ text, points: 0 })),
         );
       } else {
-        const number = parseInt(selectedOptionData, 10);
-        pollOptions[number].points++;
+        const num = parseInt(selectedOptionData, 10);
+        pollOptions[num].points++;
 
         if (!firstAnswerReceived) {
           firstAnswerReceived = true;
@@ -118,6 +118,6 @@ export async function pollForBestCandidate(
       await rerenderButtons();
     };
 
-    bot.on("callback_query", listener);
+    bot.on('callback_query', listener);
   });
 }
