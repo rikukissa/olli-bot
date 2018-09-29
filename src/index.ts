@@ -41,6 +41,11 @@ function wait(time: number) {
   return new Promise(resolve => setTimeout(resolve, time));
 }
 
+function resemblesMeaningOfLife(message: string): boolean {
+  const { distance } = new Levenshtein(message, 'mikä on elämän tarkoitus');
+
+  return distance < 3;
+}
 function resemblesGreetings(message: string): string[] {
   return greetings.filter(greeting => {
     const { distance } = new Levenshtein(message, greeting);
@@ -80,6 +85,14 @@ async function sendBestMatchingCandidate(
 
     await wait(Math.random() * 4000 + randomizedGreeting.length * 300);
     await bot.sendMessage(chatId, randomizedGreeting);
+
+    return model;
+  }
+
+  if (resemblesMeaningOfLife(message.text)) {
+    await bot.sendMessage(chatId, '42');
+    await wait(1800);
+    await bot.sendMessage(chatId, 'ja rööki :D');
 
     return model;
   }
