@@ -47,8 +47,9 @@ function resemblesMeaningOfLife(message: string): boolean {
   return distance < 3;
 }
 function resemblesGreetings(message: string): string[] {
+  const lowercasedMessage = message.toLowerCase();
   return greetings.filter(greeting => {
-    const { distance } = new Levenshtein(message, greeting);
+    const { distance } = new Levenshtein(lowercasedMessage, greeting);
     return distance < 2;
   });
 }
