@@ -21,7 +21,7 @@ import {
   removeTrainingCommandPrefix,
 } from './poll';
 
-const TELEGRAM_TOKEN = process.env.ASKER_TELEGRAM_TOKEN as string;
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN as string;
 
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
