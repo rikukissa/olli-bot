@@ -28,7 +28,7 @@ The example model would look something like this:
 
 so a recursive type
 
-```
+```typescript
 type Answer = string
 type Word = string
 type Model = [
